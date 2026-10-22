@@ -5,11 +5,11 @@ import yfinance as yf
 app = Flask(__name__)
 
 # Solo acepta peticiones desde tu interfaz (sustituye la URL por la de tu Static Site)
-CORS(app, origins=["https://mesa-nexus.onrender.com"])
+CORS(app, origins=["https://m-e-s-a.onrender.com/"])
 
 @app.route("/")
 def inicio():
-    return "Servidor MESA funcionando"
+    return "Servidor M.E.S.A. en funcionamiento"
 
 @app.route("/api/history")
 def history():
