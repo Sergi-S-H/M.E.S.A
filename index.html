@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06070d">
+<title>MESA Nexus</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#06070d;--card:rgba(18,20,36,.6);--line:rgba(140,150,255,.14);
+  --txt:#eef1ff;--mut:#8b92be;--cy:#00f0ff;--vi:#b26bff;--pk:#ff4fa3;
+  --ok:#2cff9a;--bad:#ff4d6d;--warn:#ffc857;
+}
+*{box-sizing:border-box;margin:0}
+body{
+  font-family:"Segoe UI",system-ui,-apple-system,sans-serif;color:var(--txt);
+  background:var(--bg);min-height:100vh;overflow-x:hidden;
+  padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
+}
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.45;animation:float 18s ease-in-out infinite alternate}
+.b1{width:520px;height:520px;background:var(--vi);top:-120px;left:-100px}
+.b2{width:460px;height:460px;background:var(--cy);bottom:-140px;right:-80px;animation-duration:22s}
+.b3{width:380px;height:380px;background:var(--pk);top:40%;left:45%;animation-duration:26s;opacity:.25}
+@keyframes float{to{transform:translate(60px,-40px) scale(1.15)}}
+.grid-lines{position:absolute;inset:0;opacity:.5;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:44px 44px;mask-image:radial-gradient(ellipse at center,#000 30%,transparent 75%)}
+
+.app{display:grid;grid-template-columns:320px 1fr;gap:18px;padding:18px;max-width:1500px;margin:0 auto;min-height:100vh}
+@media(max-width:900px){.app{grid-template-columns:1fr}}
+.glass{background:var(--card);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);
+  border:1px solid var(--line);border-radius:20px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+
+.side{padding:22px;display:flex;flex-direction:column;gap:18px;align-self:start}
+.brand h1{font-size:28px;font-weight:900;letter-spacing:-.5px;background:linear-gradient(90deg,var(--cy),var(--vi),var(--pk));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.brand small{color:var(--mut);letter-spacing:3px;font-size:11px;text-transform:uppercase}
+.label{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--mut);margin-bottom:8px;display:block}
+.chips{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.chip{padding:10px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--txt);
+  cursor:pointer;font:inherit;font-size:13px;text-align:left;transition:.25s}
+.chip:hover{border-color:var(--cy)}
+.chip.on{background:linear-gradient(135deg,rgba(0,240,255,.25),rgba(178,107,255,.25));border-color:var(--cy);box-shadow:0 0 18px rgba(0,240,255,.25)}
+select,input{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.04);
+  color:var(--txt);font:inherit;outline:none}
+select:focus,input:focus{border-color:var(--vi);box-shadow:0 0 0 3px rgba(178,107,255,.2)}
+select option{background:#12142a}
+input[type=range]{padding:0;accent-color:var(--cy)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{width:100%;padding:14px;border:0;border-radius:14px;font:inherit;font-weight:800;letter-spacing:1px;color:#06070d;cursor:pointer;
+  background:linear-gradient(90deg,var(--cy),var(--vi),var(--pk));background-size:200% 100%;transition:.4s;
+  box-shadow:0 8px 30px rgba(0,240,255,.25)}
+.btn:hover{background-position:100% 0;transform:translateY(-1px)}
+.btn:disabled{opacity:.6;cursor:wait}
+.btn.ghost{background:transparent;color:var(--txt);border:1px solid var(--line);box-shadow:none}
+
+.main{display:flex;flex-direction:column;gap:18px;min-width:0}
+.hero{padding:26px 28px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:18px}
+.price{font-size:clamp(38px,6vw,64px);font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-1px;margin-top:6px}
+.chg{font-size:16px;font-weight:700;padding:6px 14px;border-radius:999px;display:inline-block;margin-top:6px}
+.up{color:var(--ok);background:rgba(44,255,154,.1)}
+.dn{color:var(--bad);background:rgba(255,77,109,.1)}
+.signal{padding:14px 20px;border-radius:16px;text-align:center;min-width:220px;border:1px solid var(--warn);transition:.5s}
+.signal b{display:block;font-size:22px;letter-spacing:1px;margin:4px 0}
+.signal small{color:var(--mut);font-size:11px;letter-spacing:2px;text-transform:uppercase}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 12px var(--ok);display:inline-block;margin-right:8px;animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.3}}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.kpi{padding:16px;transition:.3s;position:relative;overflow:hidden}
+.kpi:hover{transform:translateY(-3px);box-shadow:0 0 30px rgba(0,240,255,.15)}
+.kpi::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--accent)}
+.kpi span{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:1.5px}
+.kpi b{display:block;font-size:22px;margin-top:6px;font-variant-numeric:tabular-nums}
+
+.panel{padding:20px}
+.panel h3{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--mut);margin-bottom:14px;
+  display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.chart-box{position:relative;height:380px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:1000px){.two{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:10px 8px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--mut);font-weight:600;font-size:11px;letter-spacing:1px;text-transform:uppercase}
+.log{max-height:200px;overflow:auto;margin-top:12px;font-size:13px;display:flex;flex-direction:column;gap:6px}
+.log div{padding:9px 12px;border-radius:10px;background:rgba(255,255,255,.04);border-left:3px solid var(--warn);animation:slide .4s ease}
+@keyframes slide{from{opacity:0;transform:translateX(-10px)}}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(140px);background:rgba(18,20,36,.95);
+  border:1px solid var(--cy);padding:14px 22px;border-radius:14px;box-shadow:0 0 30px rgba(0,240,255,.3);
+  transition:.45s;z-index:10;max-width:90vw;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.mut{color:var(--mut);font-size:12px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="grid-lines"></div></div>
+
+<div class="app">
+  <aside class="glass side">
+    <div class="brand"><h1>MESA Nexus</h1><small>Simulación estocástica</small></div>
+
+    <div><span class="label">Activo</span><div class="chips" id="chips"></div></div>
+
+    <div><span class="label">Modelo</span>
+      <select id="model">
+        <option value="ensemble">Ensemble (los 4 modelos)</option>
+        <option value="gbm">Movimiento browniano (GBM)</option>
+        <option value="heston">Heston (volatilidad estocástica)</option>
+        <option value="merton">Merton (saltos tipo cisne negro)</option>
+        <option value="ou">Ornstein-Uhlenbeck (reversión)</option>
+      </select>
+    </div>
+
+    <div><span class="label">Horizonte</span>
+      <select id="horizon">
+        <option value="30">30 días</option>
+        <option value="90">90 días</option>
+        <option value="180">180 días</option>
+        <option value="365" selected>1 año</option>
+      </select>
+    </div>
+
+    <div><span class="label">Trayectorias: <b id="simsVal">1000</b></span>
+      <input type="range" id="sims" min="200" max="3000" step="100" value="1000">
+    </div>
+
+    <div>
+      <span class="label">Alertas de precio</span>
+      <div class="row"><input id="amax" type="number" step="any" placeholder="Techo"><input id="amin" type="number" step="any" placeholder="Suelo"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn ghost" id="saveAlert">Guardar</button>
+        <button class="btn ghost" id="notifBtn">🔔 Avisos</button>
+      </div>
+    </div>
+
+    <div><span class="label">Backend de datos (opcional)</span>
+      <input id="backend" placeholder="https://tu-servidor.com">
+    </div>
+
+    <button class="btn" id="run">EJECUTAR SIMULACIÓN</button>
+    <div class="mut" id="src">Fuente: —</div>
+  </aside>
+
+  <main class="main">
+    <section class="glass hero">
+      <div>
+        <div class="mut"><span class="dot"></span>Última actualización · <span id="upd">--</span></div>
+        <div class="price" id="price">--</div>
+        <span class="chg" id="chg">--</span>
+      </div>
+      <div class="signal" id="signal">
+        <small>Señal del modelo</small>
+        <b id="sigTxt">--</b>
+        <small id="sigSub">—</small>
+      </div>
+    </section>
+
+    <section class="kpis" id="kpis"></section>
+
+    <section class="glass panel">
+      <h3><span>Historia y proyección</span><span class="mut" id="chartNote"></span></h3>
+      <div class="chart-box"><canvas id="chart"></canvas></div>
+    </section>
+
+    <div class="two">
+      <section class="glass panel">
+        <h3>Horizontes</h3>
+        <table>
+          <thead><tr><th>Plazo</th><th>P5</th><th>Mediana</th><th>P95</th><th>Δ med.</th></tr></thead>
+          <tbody id="hz"></tbody>
+        </table>
+      </section>
+      <section class="glass panel">
+        <h3>Registro de alertas</h3>
+        <div class="mut" id="alertInfo">Sin alertas configuradas.</div>
+        <div class="log" id="log"></div>
+      </section>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- Configuración de activos (parámetros de respaldo para modo demo) ----------
+const ASSETS = {
+  SPX:    {n:'S&P 500',   t:'^GSPC',    p:5600,   mu:.10, s:.16},
+  NVDA:   {n:'Nvidia',    t:'NVDA',     p:150,    mu:.35, s:.45},
+  BTC:    {n:'Bitcoin',   t:'BTC-USD',  p:100000, mu:.40, s:.60},
+  ETH:    {n:'Ethereum',  t:'ETH-USD',  p:3500,   mu:.30, s:.75},
+  GLD:    {n:'Oro (GLD)', t:'GLD',      p:250,    mu:.06, s:.15},
+  EURUSD: {n:'EUR/USD',   t:'EURUSD=X', p:1.08,   mu:0,   s:.07}
+};
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch(e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+};
+let cur = 'SPX', chart = null, lastState = {};
+
+const fmt = v => Number(v).toLocaleString('es-ES', {maximumFractionDigits: Math.abs(v) < 10 ? 4 : 2});
+
+// ---------- Aleatoriedad: PRNG reproducible para el modo demo ----------
+function hash(s){ let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; }
+function rng(seed){
+  let a = seed >>> 0;
+  return () => { a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+function gauss(r){ let u = 0; while (!u) u = r(); const v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+// ---------- Datos ----------
+function demoHistory(key){
+  const A = ASSETS[key], R = rng(hash(key)), N = 756, dt = 1/252;
+  const closes = []; let s = A.p * 0.8;
+  for (let i = 0; i < N; i++) {
+    s *= Math.exp((A.mu - .5*A.s*A.s)*dt + A.s*Math.sqrt(dt)*gauss(R));
+    closes.push(s);
+  }
+  const k = A.p / closes[N-1];
+  const dates = []; const d = new Date();
+  while (dates.length < N) { if (d.getDay() % 6) dates.unshift(d.toISOString().slice(0,10)); d.setDate(d.getDate()-1); }
+  return {dates, closes: closes.map(x => x*k)};
+}
+
+async function getData(key){
+  const base = store.get('mesa_backend', '').trim();
+  if (base) {
+    try {
+      const r = await fetch(`${base.replace(/\/$/,'')}/api/history?ticker=${encodeURIComponent(ASSETS[key].t)}`);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      if (j.closes && j.closes.length > 30) return {...j, src: 'backend'};
+    } catch(e) { toast('Backend no disponible, uso datos demo'); }
+  }
+  return {...demoHistory(key), src: 'demo'};
+}
+
+// ---------- Estadística del histórico ----------
+function stats(closes){
+  const r = []; for (let i = 1; i < closes.length; i++) r.push(Math.log(closes[i]/closes[i-1]));
+  const n = r.length, m = r.reduce((a,b) => a+b, 0) / n;
+  const sd = Math.sqrt(r.reduce((a,b) => a + (b-m)**2, 0) / (n-1));
+  const mu = m*252, sig = Math.max(sd*Math.sqrt(252), .01);
+  const sorted = [...r].sort((a,b) => a-b);
+  const var95 = sorted[Math.floor(.05*n)] * 100;
+  const sharpe = (mu - .02) / sig;
+  const last = closes.slice(-252);
+  const meanLog = last.reduce((a,b) => a + Math.log(b), 0) / last.length;
+  return {mu, sig, var95, sharpe, meanLog};
+}
+
+// ---------- Motor estocástico ----------
+function simulate(model, S0, H, N, st){
+  if (model === 'ensemble') {
+    const ms = ['gbm','heston','merton','ou'], per = Math.floor(N/4);
+    const parts = ms.map(m => simulate(m, S0, H, per, st));
+    return parts[0].map((_, t) => {
+      const c = new Float64Array(per*4);
+      parts.forEach((p, i) => c.set(p[t], i*per));
+      return c;
+    });
+  }
+  const R = Math.random, dt = 1/252, {mu, sig} = st;
+  const cols = Array.from({length: H+1}, () => new Float64Array(N));
+  for (let j = 0; j < N; j++) {
+    let S = S0, v = sig*sig, x = Math.log(S0);
+    cols[0][j] = S0;
+    for (let t = 1; t <= H; t++) {
+      const z1 = gauss(R), z2 = gauss(R);
+      if (model === 'gbm') {
+        S *= Math.exp((mu - .5*sig*sig)*dt + sig*Math.sqrt(dt)*z1);
+      } else if (model === 'heston') {                 // varianza estocástica (Euler con truncado)
+        const zv = -0.7*z1 + Math.sqrt(1 - 0.49)*z2;
+        v = Math.max(v + 2*(sig*sig - v)*dt + 0.5*Math.sqrt(Math.max(v,0)*dt)*zv, 0);
+        S *= Math.exp((mu - .5*v)*dt + Math.sqrt(v*dt)*z1);
+      } else if (model === 'merton') {                 // saltos de Poisson
+        const J = R() < 0.1*dt ? -0.05 + 0.1*gauss(R) : 0;
+        const kbar = Math.exp(-0.045) - 1;
+        S *= Math.exp((mu - .5*sig*sig - 0.1*kbar)*dt + sig*Math.sqrt(dt)*z1 + J);
+      } else {                                         // Ornstein-Uhlenbeck en log-precio
+        x += 3*(st.meanLog - x)*dt + sig*Math.sqrt(dt)*z1;
+        S = Math.exp(x);
+      }
+      cols[t][j] = S;
+    }
+  }
+  return cols;
+}
+
+function analyze(hist, model, H, N){
+  const S0 = hist.closes[hist.closes.length-1], st = stats(hist.closes);
+  const cols = simulate(model, S0, H, N, st), n = cols[0].length;
+  const p5 = [], p50 = [], p95 = [];
+  const mx = new Float64Array(n).fill(-Infinity), mn = new Float64Array(n).fill(Infinity);
+  for (let t = 0; t <= H; t++) {
+    const c = cols[t];
+    for (let j = 0; j < n; j++) { if (c[j] > mx[j]) mx[j] = c[j]; if (c[j] < mn[j]) mn[j] = c[j]; }
+    const s = Float64Array.from(c).sort();
+    p5.push(s[Math.floor(.05*(n-1))]); p50.push(s[Math.floor(.5*(n-1))]); p95.push(s[Math.floor(.95*(n-1))]);
+  }
+  return {S0, st, p5, p50, p95, mx, mn, N: n};
+}
+
+// ---------- Render ----------
+function render(hist, res, H, techo, suelo, key){
+  const {S0, st, p5, p50, p95, mx, mn, N} = res;
+  const prev = hist.closes[hist.closes.length-2] ?? S0;
+  const dayChg = (S0/prev - 1) * 100;
+  const sym = key === 'EURUSD' ? '' : '$';
+
+  $('price').textContent = `${fmt(S0)} ${sym}`.trim();
+  $('chg').textContent = (dayChg >= 0 ? '▲ +' : '▼ ') + dayChg.toFixed(2) + '% hoy';
+  $('chg').className = 'chg ' + (dayChg >= 0 ? 'up' : 'dn');
+
+  const ch = (p50[H]/S0 - 1) * 100;
+  const [txt, col] = ch > 3 ? ['COMPRA', '#2cff9a'] : ch < -3 ? ['VENTA', '#ff4d6d'] : ['MANTENER', '#ffc857'];
+  const sg = $('signal');
+  sg.style.borderColor = col; sg.style.boxShadow = `0 0 30px ${col}44`;
+  $('sigTxt').textContent = txt; $('sigTxt').style.color = col;
+  $('sigSub').textContent = `Mediana a ${H} días: ${ch >= 0 ? '+' : ''}${ch.toFixed(1)}%`;
+
+  const pTecho = mx.filter(v => v >= techo).length / N * 100;
+  const pSuelo = mn.filter(v => v <= suelo).length / N * 100;
+  const kpis = [
+    ['Volatilidad anual', (st.sig*100).toFixed(1) + ' %', '#00f0ff'],
+    ['Sharpe',            st.sharpe.toFixed(2),            '#b26bff'],
+    ['VaR 95% diario',    st.var95.toFixed(2) + ' %',      '#ff4fa3'],
+    ['Prob. tocar techo', pTecho.toFixed(1) + ' %',        '#2cff9a'],
+    ['Prob. tocar suelo', pSuelo.toFixed(1) + ' %',        '#ffc857'],
+    ['Drift anual',       (st.mu*100).toFixed(1) + ' %',   '#00f0ff']
+  ];
+  $('kpis').innerHTML = kpis.map(([a,b,c]) =>
+    `<div class="glass kpi" style="--accent:${c}"><span>${a}</span><b style="color:${c}">${b}</b></div>`).join('');
+
+  // Gráfico: histórico + banda de simulación
+  const hN = Math.min(252, hist.closes.length);
+  const hC = hist.closes.slice(-hN), hD = hist.dates.slice(-hN);
+  const labels = [...hD, ...Array.from({length: H}, (_, i) => `+${i+1}d`)];
+  const pad = Array(hN-1).fill(null);
+  const fc = arr => pad.concat(arr);
+  if (chart) chart.destroy();
+  chart = new Chart($('chart'), {
+    type: 'line',
+    data: { labels, datasets: [
+      {label:'Histórico', data: hC.concat(Array(H).fill(null)), borderColor:'#00f0ff',
+       backgroundColor:'rgba(0,240,255,.08)', fill:true, borderWidth:2, pointRadius:0, tension:.25},
+      {label:'P95', data: fc(p95), borderColor:'rgba(255,79,163,.5)', borderWidth:1, pointRadius:0, borderDash:[4,4]},
+      {label:'Banda 90%', data: fc(p5), borderColor:'rgba(178,107,255,.5)', borderWidth:1, pointRadius:0,
+       fill:'-1', backgroundColor:'rgba(178,107,255,.16)'},
+      {label:'Mediana simulada', data: fc(p50), borderColor:'#ffc857', borderWidth:2.5, pointRadius:0, tension:.25}
+    ]},
+    options: {
+      responsive:true, maintainAspectRatio:false, animation:{duration:700},
+      interaction:{mode:'index', intersect:false},
+      plugins: {
+        legend: {labels: {color:'#c8cdf0', filter: i => i.datasetIndex !== 1}},
+        tooltip: {backgroundColor:'rgba(10,12,25,.95)', borderColor:'#00f0ff', borderWidth:1,
+          callbacks: {label: c => c.dataset.label + ': ' + (c.parsed.y == null ? '' : fmt(c.parsed.y))}}
+      },
+      scales: {
+        x: {ticks:{color:'#8b92be', maxTicksLimit:8}, grid:{color:'rgba(255,255,255,.04)'}},
+        y: {ticks:{color:'#8b92be', callback: v => fmt(v)}, grid:{color:'rgba(255,255,255,.04)'}}
+      }
+    }
+  });
+  $('chartNote').textContent = `${N} trayectorias · ${H} días`;
+
+  // Horizontes
+  $('hz').innerHTML = [1,7,30,90,180,365].filter(d => d <= H).map(d => {
+    const c = (p50[d]/S0 - 1) * 100;
+    return `<tr><td>${d} días</td><td>${fmt(p5[d])}</td><td><b>${fmt(p50[d])}</b></td><td>${fmt(p95[d])}</td>
+            <td class="${c >= 0 ? 'up' : 'dn'}">${c >= 0 ? '+' : ''}${c.toFixed(2)}%</td></tr>`;
+  }).join('');
+}
+
+// ---------- Alertas ----------
+function checkAlerts(key, price){
+  const al = store.get('mesa_alerts', {})[key] || {};
+  const prev = lastState[key] || 'in';
+  let ns = 'in';
+  if (al.max != null && price >= al.max) ns = 'up';
+  else if (al.min != null && price <= al.min) ns = 'down';
+  if (ns !== prev && ns !== 'in') {
+    const msg = ns === 'up'
+      ? `${ASSETS[key].n} ha superado el techo (${fmt(al.max)})`
+      : `${ASSETS[key].n} ha caído al suelo (${fmt(al.min)})`;
+    notify('🚨 ' + ASSETS[key].n, msg);
+    logAlert(msg);
+  }
+  lastState[key] = ns;
+}
+function notify(t, b){
+  toast(`${t} — ${b}`);
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try { new Notification(t, {body: b}); } catch(e) {}
+  }
+}
+function logAlert(m){
+  const d = document.createElement('div');
+  d.textContent = `${new Date().toLocaleTimeString('es-ES')} · ${m}`;
+  $('log').prepend(d);
+}
+function loadAlertInputs(){
+  const a = store.get('mesa_alerts', {})[cur] || {};
+  $('amax').value = a.max ?? ''; $('amin').value = a.min ?? '';
+  $('alertInfo').textContent = (a.max != null || a.min != null)
+    ? `Techo: ${a.max != null ? fmt(a.max) : '—'} · Suelo: ${a.min != null ? fmt(a.min) : '—'}`
+    : 'Sin alertas configuradas (se usan ±10% como referencia).';
+}
+function saveAlert(){
+  const all = store.get('mesa_alerts', {});
+  const max = $('amax').value === '' ? null : +$('amax').value;
+  const min = $('amin').value === '' ? null : +$('amin').value;
+  all[cur] = {max, min};
+  store.set('mesa_alerts', all);
+  delete lastState[cur];
+  loadAlertInputs();
+  toast('Alertas guardadas');
+  run();
+}
+function askNotif(){
+  if (!('Notification' in window)) { toast('Las notificaciones no están disponibles en este navegador.'); return; }
+  Notification.requestPermission().then(p => toast(p === 'granted' ? 'Notificaciones activadas' : 'Permiso denegado'));
+}
+
+// ---------- Flujo principal ----------
+async function run(){
+  const btn = $('run');
+  btn.disabled = true; btn.textContent = 'SIMULANDO…';
+  try {
+    const key = cur;
+    const hist = await getData(key);
+    const H = +$('horizon').value, N = +$('sims').value, model = $('model').value;
+    const al = store.get('mesa_alerts', {})[key] || {};
+    const S0 = hist.closes[hist.closes.length-1];
+    const techo = al.max ?? S0*1.1, suelo = al.min ?? S0*0.9;
+    await new Promise(r => setTimeout(r, 30));          // deja pintar la UI
+    const res = analyze(hist, model, H, N);
+    render(hist, res, H, techo, suelo, key);
+    checkAlerts(key, S0);
+    $('upd').textContent = new Date().toLocaleTimeString('es-ES');
+    $('src').textContent = 'Fuente: ' + (hist.src === 'backend' ? 'backend propio (Yahoo Finance)' : 'datos demo sintéticos');
+  } catch(e) {
+    toast('Error: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'EJECUTAR SIMULACIÓN';
+  }
+}
+
+let tt;
+function toast(m){
+  const t = $('toast'); t.textContent = m; t.classList.add('show');
+  clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+function selectAsset(k, save = true){
+  cur = k;
+  document.querySelectorAll('.chip').forEach(b => b.classList.toggle('on', b.dataset.k === k));
+  if (save) store.set('mesa_cur', k);
+  loadAlertInputs();
+}
+
+function init(){
+  const cs = store.get('mesa_cur', 'SPX'); cur = ASSETS[cs] ? cs : 'SPX';
+  $('model').value = store.get('mesa_model', 'ensemble');
+  $('horizon').value = store.get('mesa_h', '365');
+  $('sims').value = store.get('mesa_sims', 1000); $('simsVal').textContent = $('sims').value;
+  $('backend').value = store.get('mesa_backend', '');
+  $('chips').innerHTML = Object.keys(ASSETS).map(k => `<button class="chip" data-k="${k}">${ASSETS[k].n}</button>`).join('');
+  document.querySelectorAll('.chip').forEach(b => b.onclick = () => { selectAsset(b.dataset.k); run(); });
+  selectAsset(cur, false);
+  $('model').onchange = () => { store.set('mesa_model', $('model').value); run(); };
+  $('horizon').onchange = () => { store.set('mesa_h', $('horizon').value); run(); };
+  $('sims').oninput = () => $('simsVal').textContent = $('sims').value;
+  $('sims').onchange = () => { store.set('mesa_sims', +$('sims').value); run(); };
+  $('run').onclick = run;
+  $('saveAlert').onclick = saveAlert;
+  $('notifBtn').onclick = askNotif;
+  $('backend').onchange = () => store.set('mesa_backend', $('backend').value.trim());
+  setInterval(() => { if (store.get('mesa_backend', '')) run(); }, 60000);
+  run();
+}
+init();
+</script>
+</body>
+</html>
