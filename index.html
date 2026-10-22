@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#06070d">
-<title>MESA Nexus</title>
+<title>M.E.S.A. Nexus</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{
@@ -94,6 +94,9 @@ th{color:var(--mut);font-weight:600;font-size:11px;letter-spacing:1px;text-trans
   transition:.45s;z-index:10;max-width:90vw;text-align:center}
 .toast.show{transform:translateX(-50%) translateY(0)}
 .mut{color:var(--mut);font-size:12px;line-height:1.5}
+.results{display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:220px;overflow:auto}
+.res{padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--txt);font:inherit;font-size:13px;text-align:left;cursor:pointer;transition:.2s}
+.res:hover{border-color:var(--pk)}
 </style>
 </head>
 <body>
@@ -101,9 +104,14 @@ th{color:var(--mut);font-weight:600;font-size:11px;letter-spacing:1px;text-trans
 
 <div class="app">
   <aside class="glass side">
-    <div class="brand"><h1>MESA Nexus</h1><small>Simulación estocástica</small></div>
+    <div class="brand"><h1>M.E.S.A. Nexus</h1><small>Simulación estocástica</small></div>
 
     <div><span class="label">Activo</span><div class="chips" id="chips"></div></div>
+
+    <div><span class="label">Buscar activo</span>
+      <input id="search" placeholder="Ej: Apple, Iberdrola, Solana..." autocomplete="off">
+      <div id="results" class="results"></div>
+    </div>
 
     <div><span class="label">Modelo</span>
       <select id="model">
@@ -239,6 +247,7 @@ async function getData(key){
       if (j.closes && j.closes.length > 30) return {...j, src: 'backend'};
     } catch(e) { toast('Backend no disponible, uso datos demo'); }
   }
+  if (ASSETS[key].custom) throw new Error('Este activo necesita el backend para ver datos reales');
   return {...demoHistory(key), src: 'demo'};
 }
 
@@ -445,7 +454,7 @@ async function run(){
     const res = analyze(hist, model, H, N);
     render(hist, res, H, techo, suelo, key);
     checkAlerts(key, S0);
-    $('upd').textContent = new Date().toLocaleTimeString('es-ES');
+    $('upd').textContent = new Date().toLocaleString('es-ES',{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
     $('src').textContent = 'Fuente: ' + (hist.src === 'backend' ? 'backend propio (Yahoo Finance)' : 'datos demo sintéticos');
   } catch(e) {
     toast('Error: ' + e.message);
@@ -458,6 +467,40 @@ let tt;
 function toast(m){
   const t = $('toast'); t.textContent = m; t.classList.add('show');
   clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+let sTimer;
+function onSearch(){
+  clearTimeout(sTimer);
+  const q = $('search').value.trim();
+  if (q.length < 2) { $('results').innerHTML = ''; return; }
+  sTimer = setTimeout(async () => {
+    const base = store.get('mesa_backend', '').trim();
+    if (!base) { $('results').innerHTML = '<div class="mut">Configura el backend para buscar activos.</div>'; return; }
+    try {
+      const r = await fetch(`${base.replace(/\/$/,'')}/api/search?q=${encodeURIComponent(q)}`);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const list = await r.json();
+      $('results').innerHTML = list.length
+        ? list.map(x => `<button class="res" data-t="${x.ticker}" data-n="${x.name.replace(/"/g,'')}">${x.ticker} <span class="mut">${x.name}</span></button>`).join('')
+        : '<div class="mut">Sin resultados</div>';
+      document.querySelectorAll('.res').forEach(b => b.onclick = () => addAsset(b.dataset.t, b.dataset.n));
+    } catch(e) { $('results').innerHTML = '<div class="mut">Error al buscar: ' + e.message + '</div>'; }
+  }, 350);
+}
+function addAsset(t, n){
+  const key = t.replace(/[^A-Za-z0-9]/g, '_');
+  const custom = store.get('mesa_custom', {});
+  custom[key] = {n: n || t, t, custom: true};
+  store.set('mesa_custom', custom);
+  Object.assign(ASSETS, custom);
+  $('search').value = ''; $('results').innerHTML = '';
+  renderChips(); selectAsset(key); run();
+  toast('Activo añadido: ' + t);
+}
+function renderChips(){
+  $('chips').innerHTML = Object.keys(ASSETS).map(k => `<button class="chip" data-k="${k}">${ASSETS[k].n}</button>`).join('');
+  document.querySelectorAll('.chip').forEach(b => b.onclick = () => { selectAsset(b.dataset.k); run(); });
 }
 
 function selectAsset(k, save = true){
@@ -473,14 +516,15 @@ function init(){
   $('horizon').value = store.get('mesa_h', '365');
   $('sims').value = store.get('mesa_sims', 1000); $('simsVal').textContent = $('sims').value;
   $('backend').value = store.get('mesa_backend', '');
-  $('chips').innerHTML = Object.keys(ASSETS).map(k => `<button class="chip" data-k="${k}">${ASSETS[k].n}</button>`).join('');
-  document.querySelectorAll('.chip').forEach(b => b.onclick = () => { selectAsset(b.dataset.k); run(); });
+  Object.assign(ASSETS, store.get('mesa_custom', {}));
+  renderChips();
   selectAsset(cur, false);
   $('model').onchange = () => { store.set('mesa_model', $('model').value); run(); };
   $('horizon').onchange = () => { store.set('mesa_h', $('horizon').value); run(); };
   $('sims').oninput = () => $('simsVal').textContent = $('sims').value;
   $('sims').onchange = () => { store.set('mesa_sims', +$('sims').value); run(); };
   $('run').onclick = run;
+  $('search').oninput = onSearch;
   $('saveAlert').onclick = saveAlert;
   $('notifBtn').onclick = askNotif;
   $('backend').onchange = () => store.set('mesa_backend', $('backend').value.trim());
